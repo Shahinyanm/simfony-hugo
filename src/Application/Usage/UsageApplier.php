@@ -7,8 +7,10 @@ namespace App\Application\Usage;
 use App\Application\UnknownOrganizationException;
 use App\Domain\Quota\QuotaGuard;
 use App\Entity\Organization;
+use App\Message\CredentialsStateChanged;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 final readonly class UsageApplier
 {
@@ -16,6 +18,7 @@ final readonly class UsageApplier
         private EntityManagerInterface $entityManager,
         private UsageEventRecorder $recorder,
         private QuotaGuard $quotaGuard,
+        private MessageBusInterface $messageBus,
     ) {
     }
 
@@ -46,7 +49,11 @@ final readonly class UsageApplier
                 }
 
                 $organization->addConsumption($bytes);
-                $this->quotaGuard->synchronize($organization);
+
+                $change = $this->quotaGuard->synchronize($organization);
+                if (null !== $change) {
+                    $this->messageBus->dispatch(CredentialsStateChanged::fromChange($change));
+                }
 
                 return UsageApplicationResult::Applied;
             },

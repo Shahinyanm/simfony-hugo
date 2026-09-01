@@ -55,6 +55,21 @@ final class IdempotentIngestionTest extends ApiTestCase
     }
 
     #[Test]
+    public function redeliveryOfACutOffEventEmitsNoFurtherNotification(): void
+    {
+        $organization = $this->createOrganization(quotaBytes: 1_000_000);
+        $this->createCredential($organization);
+        $uri = '/api/organizations/'.$organization->getId()->toRfc4122().'/usage';
+        $outbox = static::getContainer()->get('messenger.transport.outbox');
+
+        $this->jsonRequest('POST', $uri, $organization->getApiKey(), ['bytes' => 1_000_000, 'event_id' => 'evt-burn']);
+        self::assertCount(1, $outbox->getSent());
+
+        $this->jsonRequest('POST', $uri, $organization->getApiKey(), ['bytes' => 1_000_000, 'event_id' => 'evt-burn']);
+        self::assertCount(0, $outbox->getSent());
+    }
+
+    #[Test]
     public function tooLongEventIdIsRejected(): void
     {
         $organization = $this->createOrganization();

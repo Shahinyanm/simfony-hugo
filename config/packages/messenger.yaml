@@ -1,20 +1,42 @@
 framework:
     messenger:
-        # Uncomment this (and the failed transport below) to send failed messages to this transport for later handling.
-        # failure_transport: failed
+        failure_transport: failed
 
         transports:
-            # Starter: sync:// (HTTP runs the handler in-process).
-            async: '%env(MESSENGER_TRANSPORT_DSN)%'
-            sync: 'sync://'
+            async:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                retry_strategy:
+                    max_retries: 3
+                    delay: 1000
+                    multiplier: 3
+                    max_delay: 60000
+
+            outbox:
+                dsn: 'doctrine://default?queue_name=outbox'
+                options:
+                    auto_setup: false
+                retry_strategy:
+                    max_retries: 5
+                    delay: 2000
+                    multiplier: 2
+
+            broker:
+                dsn: '%env(BROKER_TRANSPORT_DSN)%'
+
+            failed:
+                dsn: 'doctrine://default?queue_name=failed'
+                options:
+                    auto_setup: false
 
         routing:
             App\Message\IngestUsageMessage: async
+            App\Message\CredentialsStateChanged: outbox
 
-# when@test:
-#    framework:
-#        messenger:
-#            transports:
-#                # replace with your transport name here (e.g., my_transport: 'in-memory://')
-#                # For more Messenger testing tools, see https://github.com/zenstruck/messenger-test
-#                async: 'in-memory://'
+when@test:
+    framework:
+        messenger:
+            transports:
+                async: 'sync://'
+                outbox: 'in-memory://'
+                broker: 'in-memory://'
+                failed: 'in-memory://'
