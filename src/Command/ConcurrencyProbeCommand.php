@@ -113,6 +113,9 @@ final class ConcurrencyProbeCommand extends Command
         return $this->verify($io, $organizationId, $workers * $events, $failed);
     }
 
+    /**
+     * @param list<string> $arguments
+     */
     private function spawn(array $arguments): Process
     {
         return new Process(
@@ -187,6 +190,12 @@ final class ConcurrencyProbeCommand extends Command
                 SQL,
             [$organizationId],
         );
+
+        if (false === $totals) {
+            $io->error('Probe organization disappeared before verification.');
+
+            return Command::FAILURE;
+        }
 
         $lostUpdates = (int) $totals['consumption_bytes'] !== (int) $totals['applied_bytes'];
         $duplicates = (int) $totals['rows_total'] !== (int) $totals['rows_distinct'];

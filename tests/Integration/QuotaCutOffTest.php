@@ -25,6 +25,7 @@ final class QuotaCutOffTest extends ApiTestCase
 
         $this->entityManager->clear();
         $reloaded = $this->entityManager->find(Organization::class, $organization->getId());
+        self::assertInstanceOf(Organization::class, $reloaded);
 
         self::assertTrue($reloaded->isOverQuota());
         foreach ($reloaded->getCredentials() as $credential) {
@@ -103,6 +104,8 @@ final class QuotaCutOffTest extends ApiTestCase
 
         $this->entityManager->clear();
         $reloaded = $this->entityManager->find(Organization::class, $organization->getId());
+        self::assertInstanceOf(Organization::class, $reloaded);
+
         $late = $this->createCredential($reloaded, 'proxy-late');
 
         self::assertFalse($late->isEnabled());

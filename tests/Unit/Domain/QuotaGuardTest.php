@@ -101,7 +101,9 @@ final class QuotaGuardTest extends TestCase
     public function reportsOnlyCredentialsThatActuallyChanged(): void
     {
         $organization = $this->organization(quotaBytes: 1_000, consumptionBytes: 1_500);
-        $organization->getCredentials()->first()->setEnabled(false);
+        $first = $organization->getCredentials()->first();
+        self::assertInstanceOf(Credential::class, $first);
+        $first->setEnabled(false);
 
         $change = $this->guard()->synchronize($organization);
 

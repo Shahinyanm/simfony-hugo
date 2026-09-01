@@ -9,6 +9,7 @@ use App\Entity\Organization;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 abstract class ApiTestCase extends WebTestCase
 {
@@ -18,7 +19,10 @@ abstract class ApiTestCase extends WebTestCase
     protected function setUp(): void
     {
         $this->client = static::createClient();
-        $this->entityManager = static::getContainer()->get(EntityManagerInterface::class);
+
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $entityManager);
+        $this->entityManager = $entityManager;
     }
 
     protected function createOrganization(
@@ -87,8 +91,11 @@ abstract class ApiTestCase extends WebTestCase
      */
     protected function sentToOutbox(string $messageClass): array
     {
+        $outbox = static::getContainer()->get('messenger.transport.outbox');
+        self::assertInstanceOf(InMemoryTransport::class, $outbox);
+
         $messages = [];
-        foreach (static::getContainer()->get('messenger.transport.outbox')->getSent() as $envelope) {
+        foreach ($outbox->getSent() as $envelope) {
             $message = $envelope->getMessage();
             if ($message instanceof $messageClass) {
                 $messages[] = $message;

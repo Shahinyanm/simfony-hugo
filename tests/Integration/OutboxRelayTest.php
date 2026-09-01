@@ -26,10 +26,12 @@ final class OutboxRelayTest extends ApiTestCase
         );
 
         $handler = static::getContainer()->get(RelayCredentialsStateChangedHandler::class);
+        self::assertInstanceOf(RelayCredentialsStateChangedHandler::class, $handler);
         $handler($event);
 
-        /** @var InMemoryTransport $broker */
         $broker = static::getContainer()->get('messenger.transport.broker');
+        self::assertInstanceOf(InMemoryTransport::class, $broker);
+
         $sent = $broker->getSent();
 
         self::assertCount(1, $sent);

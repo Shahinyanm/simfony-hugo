@@ -16,6 +16,7 @@ final class FailedIngestionTest extends ApiTestCase
     public function usageForUnknownOrganizationFails(): void
     {
         $applier = static::getContainer()->get(UsageApplier::class);
+        self::assertInstanceOf(UsageApplier::class, $applier);
 
         $this->expectException(UnknownOrganizationException::class);
 
