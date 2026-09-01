@@ -31,6 +31,7 @@ framework:
         routing:
             App\Message\IngestUsageMessage: async
             App\Message\CredentialsStateChanged: outbox
+            App\Message\ProxyFleetNotification: broker
 
 when@test:
     framework:
