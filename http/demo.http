@@ -1,0 +1,39 @@
+### Get organization
+# Requires make seed. Replace {{org_id}} with the printed organization id.
+< {%
+    client.global.set('org_id', '<org_id>')
+%}
+
+GET http://localhost:8080/api/organizations/{{org_id}}
+X-Api-Key: demo-acme-key
+Accept: application/json
+
+### Ingest usage (naive handler — not idempotent yet)
+POST http://localhost:8080/api/organizations/{{org_id}}/usage
+X-Api-Key: demo-acme-key
+Accept: application/json
+Content-Type: application/json
+
+{
+  "bytes": 1000000,
+  "event_id": "evt-demo-1"
+}
+
+### Top-up (naive — increases quota only, does not re-enable credentials)
+POST http://localhost:8080/api/organizations/{{org_id}}/topups
+X-Api-Key: demo-acme-key
+Accept: application/json
+Content-Type: application/json
+
+{
+  "bytes": 5000000
+}
+
+### Get credential
+< {%
+    client.global.set('credential_id', '<credential_id>')
+%}
+
+GET http://localhost:8080/api/credentials/{{credential_id}}
+X-Api-Key: demo-acme-key
+Accept: application/json

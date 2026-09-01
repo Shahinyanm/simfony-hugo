@@ -1,0 +1,38 @@
+services:
+  php:
+    build: .
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      APP_SECRET: ${APP_SECRET:-change-me-in-dev}
+      DATABASE_URL: postgresql://app:app@database:5432/app?serverVersion=16&charset=utf8
+      MESSENGER_TRANSPORT_DSN: sync://
+      DEFAULT_URI: http://localhost:8080
+    depends_on:
+      database:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    command: php -S 0.0.0.0:8080 -t public
+
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+    ports:
+      - "5433:5432"
+    volumes:
+      - database_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+volumes:
+  database_data:
