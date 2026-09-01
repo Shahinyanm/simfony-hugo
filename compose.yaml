@@ -8,8 +8,8 @@ services:
       APP_ENV: ${APP_ENV:-dev}
       APP_SECRET: ${APP_SECRET:-change-me-in-dev}
       DATABASE_URL: postgresql://app:app@database:5432/app?serverVersion=16&charset=utf8
-      MESSENGER_TRANSPORT_DSN: amqp://app:app@rabbitmq:5672/%2f/usage
-      BROKER_TRANSPORT_DSN: amqp://app:app@rabbitmq:5672/%2f/proxy_fleet
+      MESSENGER_TRANSPORT_DSN: amqp://app:app@rabbitmq:5672/%2f/usage?connect_timeout=2&read_timeout=2&write_timeout=2
+      BROKER_TRANSPORT_DSN: amqp://app:app@rabbitmq:5672/%2f/proxy_fleet?connect_timeout=2&read_timeout=2&write_timeout=2
       DEFAULT_URI: http://localhost:8080
     depends_on:
       database:

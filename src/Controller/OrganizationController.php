@@ -13,6 +13,8 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
+use Symfony\Component\Messenger\Exception\TransportException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -20,6 +22,7 @@ final class OrganizationController
 {
     private const int EVENT_ID_MAX_LENGTH = 128;
     private const int BATCH_MAX_EVENTS = 1000;
+    private const int RETRY_AFTER_SECONDS = 5;
 
     public function __construct(
         private readonly OrganizationApiKeyAuthenticator $authenticator,
@@ -45,7 +48,7 @@ final class OrganizationController
         $bytes = $this->requirePositiveInt($payload, 'bytes');
         $eventId = $this->requireNonEmptyString($payload, 'event_id');
 
-        $this->messageBus->dispatch(new IngestUsageMessage($id, $bytes, $eventId));
+        $this->accept(new IngestUsageMessage($id, $bytes, $eventId));
 
         return new JsonResponse(['status' => 'accepted'], Response::HTTP_ACCEPTED);
     }
@@ -78,7 +81,7 @@ final class OrganizationController
             ];
         }
 
-        $this->messageBus->dispatch(new IngestUsageBatchMessage($id, $normalized));
+        $this->accept(new IngestUsageBatchMessage($id, $normalized));
 
         return new JsonResponse(['status' => 'accepted', 'count' => \count($normalized)], Response::HTTP_ACCEPTED);
     }
@@ -91,6 +94,19 @@ final class OrganizationController
         $bytes = $this->requirePositiveInt($payload, 'bytes');
 
         return new JsonResponse($this->organizationPayload($this->topupApplier->apply($id, $bytes)));
+    }
+
+    private function accept(object $message): void
+    {
+        try {
+            $this->messageBus->dispatch($message);
+        } catch (TransportException $exception) {
+            throw new ServiceUnavailableHttpException(
+                self::RETRY_AFTER_SECONDS,
+                'Usage ingestion is temporarily unavailable.',
+                $exception,
+            );
+        }
     }
 
     /**

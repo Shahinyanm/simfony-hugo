@@ -10,7 +10,7 @@
 
 **Notifying the fleet.** The domain event goes to a Doctrine-backed outbox in the same transaction as the state change; a separate worker republishes it to RabbitMQ. Database and broker cannot be written atomically, so the question is how to be wrong: announce a change that may roll back, lose the notification if the process dies after the commit, or pay one extra hop. Only the last repairs itself. Delivery is at-least-once, so the message carries target state and `occurred_at` rather than a delta, and the relay runs as a single consumer — two could deliver "disabled" and "enabled" out of order.
 
-**Operational.** `lock_timeout` is 5s on the database role. Without it a stuck transaction blocks an organization indefinitely and top-ups hang until the web server gives up; with it the problem surfaces as a retry.
+**Operational.** `lock_timeout` is 5s on the database role. Without it a stuck transaction blocks an organization indefinitely and top-ups hang until the web server gives up; with it the problem surfaces as a retry. When the broker is unreachable, ingestion answers `503` with `Retry-After` instead of `500` — the edge is meant to retry, not to treat it as our bug — and the AMQP DSN carries a 2s connect timeout so the refusal is quick. Reads keep working: only ingestion depends on the broker.
 
 **Limits.**
 - Per-organization throughput is capped by the row lock. Batch ingest amortises it; sharding the queue by `organization_id` removes the contention while keeping order.
