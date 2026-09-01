@@ -23,13 +23,15 @@ class Credential
     private string $username;
 
     #[ORM\Column]
-    private bool $enabled = true;
+    private bool $enabled;
 
     public function __construct(Organization $organization, string $username)
     {
         $this->id = Uuid::v7();
         $this->organization = $organization;
         $this->username = $username;
+        $this->enabled = !$organization->isOverQuota();
+
         $organization->addCredential($this);
     }
 

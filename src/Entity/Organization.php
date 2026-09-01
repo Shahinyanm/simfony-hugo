@@ -67,11 +67,6 @@ class Organization
         return (int) $this->quotaBytes;
     }
 
-    public function setQuotaBytes(int $quotaBytes): void
-    {
-        $this->quotaBytes = $quotaBytes;
-    }
-
     public function getConsumptionBytes(): int
     {
         return (int) $this->consumptionBytes;
@@ -98,6 +93,11 @@ class Organization
     public function getRemainingBytes(): int
     {
         return \max(0, $this->getQuotaBytes() - $this->getConsumptionBytes());
+    }
+
+    public function isOverQuota(): bool
+    {
+        return $this->getConsumptionBytes() >= $this->getQuotaBytes();
     }
 
     /**
