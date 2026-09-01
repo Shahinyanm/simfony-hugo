@@ -45,7 +45,8 @@ final class ConcurrencyProbeCommand extends Command
             ->addOption('topups', null, InputOption::VALUE_REQUIRED, 'Parallel top-up processes', '2')
             ->addOption('worker-for', null, InputOption::VALUE_REQUIRED, 'Internal: organization to apply usage to')
             ->addOption('topup-for', null, InputOption::VALUE_REQUIRED, 'Internal: organization to top up')
-            ->addOption('slot', null, InputOption::VALUE_REQUIRED, 'Internal: worker index', '0');
+            ->addOption('slot', null, InputOption::VALUE_REQUIRED, 'Internal: worker index', '0')
+            ->addOption('bytes', null, InputOption::VALUE_REQUIRED, 'Internal: bytes per event', '1');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -55,6 +56,7 @@ final class ConcurrencyProbeCommand extends Command
                 $input->getOption('worker-for'),
                 (int) $input->getOption('slot'),
                 (int) $input->getOption('events'),
+                (int) $input->getOption('bytes'),
             );
         }
 
@@ -74,6 +76,7 @@ final class ConcurrencyProbeCommand extends Command
     {
         $organization = $this->createProbeOrganization();
         $organizationId = $organization->getId()->toRfc4122();
+        $bytesPerEvent = $this->bytesPerEvent($workers, $events);
 
         $io->section(\sprintf('%d usage workers x %d events + %d top-up workers', $workers, $events, $topups));
 
@@ -83,6 +86,7 @@ final class ConcurrencyProbeCommand extends Command
                 '--worker-for='.$organizationId,
                 '--slot='.$slot,
                 '--events='.$events,
+                '--bytes='.$bytesPerEvent,
             ]);
         }
 
@@ -120,12 +124,15 @@ final class ConcurrencyProbeCommand extends Command
         );
     }
 
-    private function runUsageWorker(string $organizationId, int $slot, int $events): int
+    private function bytesPerEvent(int $workers, int $events): int
     {
-        $perEvent = (int) \max(1, \floor(self::QUOTA_BYTES / $events / 8 * 2));
+        return (int) \max(1, \floor(self::QUOTA_BYTES * 2 / ($workers * $events)));
+    }
 
+    private function runUsageWorker(string $organizationId, int $slot, int $events, int $bytesPerEvent): int
+    {
         for ($i = 0; $i < $events; ++$i) {
-            $this->usageApplier->apply($organizationId, \sprintf('w%d-e%d', $slot, $i), $perEvent);
+            $this->usageApplier->apply($organizationId, \sprintf('w%d-e%d', $slot, $i), $bytesPerEvent);
             $this->entityManager->clear();
         }
 
