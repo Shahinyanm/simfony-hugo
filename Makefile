@@ -20,10 +20,10 @@ seed:
 	docker compose exec php bin/console app:demo:seed
 
 test:
-	docker compose exec -e APP_ENV=test php bin/phpunit
+	docker compose exec -e APP_ENV=test php bin/phpunit --testsuite="Project Test Suite"
 
 concurrency:
-	docker compose exec php bin/console app:concurrency:probe --workers=8 --events=25
+	docker compose exec php bin/console app:concurrency:probe --workers=8 --events=25 --topups=2
 
 worker-logs:
 	docker compose logs -f worker-usage worker-outbox
