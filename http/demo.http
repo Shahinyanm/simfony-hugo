@@ -8,7 +8,7 @@ GET http://localhost:8080/api/organizations/{{org_id}}
 X-Api-Key: demo-acme-key
 Accept: application/json
 
-### Ingest usage (naive handler — not idempotent yet)
+### Ingest usage (idempotent: replaying the same event_id changes nothing)
 POST http://localhost:8080/api/organizations/{{org_id}}/usage
 X-Api-Key: demo-acme-key
 Accept: application/json
@@ -19,7 +19,7 @@ Content-Type: application/json
   "event_id": "evt-demo-1"
 }
 
-### Top-up (naive — increases quota only, does not re-enable credentials)
+### Top-up (raises the quota and re-enables credentials once the org is back under it)
 POST http://localhost:8080/api/organizations/{{org_id}}/topups
 X-Api-Key: demo-acme-key
 Accept: application/json

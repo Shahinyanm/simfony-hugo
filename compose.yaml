@@ -4,18 +4,49 @@ services:
     volumes:
       - .:/app
     working_dir: /app
-    environment:
+    environment: &app-env
       APP_ENV: ${APP_ENV:-dev}
       APP_SECRET: ${APP_SECRET:-change-me-in-dev}
       DATABASE_URL: postgresql://app:app@database:5432/app?serverVersion=16&charset=utf8
-      MESSENGER_TRANSPORT_DSN: sync://
+      MESSENGER_TRANSPORT_DSN: amqp://app:app@rabbitmq:5672/%2f/usage
+      BROKER_TRANSPORT_DSN: amqp://app:app@rabbitmq:5672/%2f/proxy_fleet
       DEFAULT_URI: http://localhost:8080
     depends_on:
       database:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     ports:
       - "8080:8080"
     command: php -S 0.0.0.0:8080 -t public
+
+  worker-usage:
+    build: .
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment: *app-env
+    depends_on:
+      database:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    command: php bin/console messenger:consume async -vv --time-limit=3600
+
+  worker-outbox:
+    build: .
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment: *app-env
+    depends_on:
+      database:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    command: php bin/console messenger:consume outbox -vv --time-limit=3600
 
   database:
     image: postgres:16-alpine
@@ -33,6 +64,20 @@ services:
     volumes:
       - database_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: app
+      RABBITMQ_DEFAULT_PASS: app
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "5672:5672"
+      - "15672:15672"
 
 volumes:
   database_data:

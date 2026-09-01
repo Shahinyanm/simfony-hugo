@@ -1,4 +1,4 @@
-.PHONY: install up down migrate seed test
+.PHONY: install up down migrate seed test concurrency worker-logs
 
 install: up
 	docker compose exec php composer install
@@ -21,3 +21,9 @@ seed:
 
 test:
 	docker compose exec -e APP_ENV=test php bin/phpunit
+
+concurrency:
+	docker compose exec php bin/console app:concurrency:probe --workers=8 --events=25
+
+worker-logs:
+	docker compose logs -f worker-usage worker-outbox
