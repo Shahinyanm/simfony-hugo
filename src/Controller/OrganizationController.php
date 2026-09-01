@@ -6,6 +6,7 @@ namespace App\Controller;
 
 use App\Application\Topup\TopupApplier;
 use App\Entity\Organization;
+use App\Message\IngestUsageBatchMessage;
 use App\Message\IngestUsageMessage;
 use App\Security\OrganizationApiKeyAuthenticator;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -18,6 +19,7 @@ use Symfony\Component\Routing\Attribute\Route;
 final class OrganizationController
 {
     private const int EVENT_ID_MAX_LENGTH = 128;
+    private const int BATCH_MAX_EVENTS = 1000;
 
     public function __construct(
         private readonly OrganizationApiKeyAuthenticator $authenticator,
@@ -46,6 +48,39 @@ final class OrganizationController
         $this->messageBus->dispatch(new IngestUsageMessage($id, $bytes, $eventId));
 
         return new JsonResponse(['status' => 'accepted'], Response::HTTP_ACCEPTED);
+    }
+
+    #[Route(path: '/api/organizations/{id}/usage/batch', name: 'organization_post_usage_batch', methods: ['POST'])]
+    public function ingestUsageBatch(Request $request, string $id): JsonResponse
+    {
+        $this->authenticator->requireOrganization($request, $id);
+
+        $payload = $this->decodePayload($request);
+        $events = $payload['events'] ?? null;
+
+        if (!\is_array($events) || [] === $events || !\array_is_list($events)) {
+            throw new BadRequestHttpException('"events" must be a non-empty list.');
+        }
+
+        if (\count($events) > self::BATCH_MAX_EVENTS) {
+            throw new BadRequestHttpException(\sprintf('"events" must not exceed %d entries.', self::BATCH_MAX_EVENTS));
+        }
+
+        $normalized = [];
+        foreach ($events as $event) {
+            if (!\is_array($event)) {
+                throw new BadRequestHttpException('Each entry of "events" must be an object.');
+            }
+
+            $normalized[] = [
+                'bytes' => $this->requirePositiveInt($event, 'bytes'),
+                'event_id' => $this->requireNonEmptyString($event, 'event_id'),
+            ];
+        }
+
+        $this->messageBus->dispatch(new IngestUsageBatchMessage($id, $normalized));
+
+        return new JsonResponse(['status' => 'accepted', 'count' => \count($normalized)], Response::HTTP_ACCEPTED);
     }
 
     #[Route(path: '/api/organizations/{id}/topups', name: 'organization_post_topup', methods: ['POST'])]

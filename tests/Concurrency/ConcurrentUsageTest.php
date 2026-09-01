@@ -12,17 +12,6 @@ final class ConcurrentUsageTest extends TestCase
 {
     private const string PROJECT_DIR = __DIR__.'/../..';
 
-    protected function tearDown(): void
-    {
-        $process = new Process(
-            ['php', 'bin/console', 'dbal:run-sql', "DELETE FROM organizations WHERE name = 'Concurrency probe'"],
-            self::PROJECT_DIR,
-        );
-        $process->run();
-
-        parent::tearDown();
-    }
-
     #[Test]
     public function parallelUsageAndTopupsKeepTheQuotaInvariant(): void
     {

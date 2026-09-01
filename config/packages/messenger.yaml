@@ -30,6 +30,7 @@ framework:
 
         routing:
             App\Message\IngestUsageMessage: async
+            App\Message\IngestUsageBatchMessage: async
             App\Message\CredentialsStateChanged: outbox
             App\Message\QuotaThresholdReached: outbox
             App\Message\ProxyFleetNotification: broker

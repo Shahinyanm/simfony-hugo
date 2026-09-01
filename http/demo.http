@@ -19,6 +19,19 @@ Content-Type: application/json
   "event_id": "evt-demo-1"
 }
 
+### Ingest a batch (same invariants, one lock and one notification for the whole batch)
+POST http://localhost:8080/api/organizations/{{org_id}}/usage/batch
+X-Api-Key: demo-acme-key
+Accept: application/json
+Content-Type: application/json
+
+{
+  "events": [
+    {"bytes": 1000000, "event_id": "evt-batch-1"},
+    {"bytes": 2000000, "event_id": "evt-batch-2"}
+  ]
+}
+
 ### Top-up (raises the quota and re-enables credentials once the org is back under it)
 POST http://localhost:8080/api/organizations/{{org_id}}/topups
 X-Api-Key: demo-acme-key

@@ -24,6 +24,7 @@ use Symfony\Component\Process\Process;
 )]
 final class ConcurrencyProbeCommand extends Command
 {
+    private const string ORGANIZATION_NAME = 'Concurrency probe';
     private const int CREDENTIALS = 3;
     private const int QUOTA_BYTES = 1_000_000;
 
@@ -73,7 +74,6 @@ final class ConcurrencyProbeCommand extends Command
     {
         $organization = $this->createProbeOrganization();
         $organizationId = $organization->getId()->toRfc4122();
-        $bytesPerEvent = (int) \max(1, \floor(self::QUOTA_BYTES / ($workers * $events) * 2));
 
         $io->section(\sprintf('%d usage workers x %d events + %d top-up workers', $workers, $events, $topups));
 
@@ -106,7 +106,7 @@ final class ConcurrencyProbeCommand extends Command
             }
         }
 
-        return $this->verify($io, $organizationId, $bytesPerEvent, $workers * $events, $failed);
+        return $this->verify($io, $organizationId, $workers * $events, $failed);
     }
 
     private function spawn(array $arguments): Process
@@ -122,10 +122,6 @@ final class ConcurrencyProbeCommand extends Command
 
     private function runUsageWorker(string $organizationId, int $slot, int $events): int
     {
-        $bytes = (int) $this->connection->fetchOne(
-            'SELECT quota_bytes FROM organizations WHERE id = ?',
-            [$organizationId],
-        );
         $perEvent = (int) \max(1, \floor(self::QUOTA_BYTES / $events / 8 * 2));
 
         for ($i = 0; $i < $events; ++$i) {
@@ -148,7 +144,9 @@ final class ConcurrencyProbeCommand extends Command
 
     private function createProbeOrganization(): Organization
     {
-        $organization = new Organization('Concurrency probe', 'probe-'.\bin2hex(\random_bytes(8)), self::QUOTA_BYTES);
+        $this->connection->executeStatement('DELETE FROM organizations WHERE name = ?', [self::ORGANIZATION_NAME]);
+
+        $organization = new Organization(self::ORGANIZATION_NAME, 'probe-'.\bin2hex(\random_bytes(8)), self::QUOTA_BYTES);
         for ($i = 1; $i <= self::CREDENTIALS; ++$i) {
             new Credential($organization, 'probe-proxy-'.$i);
         }
@@ -160,7 +158,7 @@ final class ConcurrencyProbeCommand extends Command
         return $organization;
     }
 
-    private function verify(SymfonyStyle $io, string $organizationId, int $bytesPerEvent, int $expectedEvents, int $failedProcesses): int
+    private function verify(SymfonyStyle $io, string $organizationId, int $expectedEvents, int $failedProcesses): int
     {
         $violations = (int) $this->connection->fetchOne(
             <<<'SQL'

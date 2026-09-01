@@ -26,8 +26,33 @@ final readonly class UsageApplier
 
     public function apply(string $organizationId, string $eventId, int $bytes): UsageApplicationResult
     {
+        return $this->applyAll($organizationId, [['event_id' => $eventId, 'bytes' => $bytes]])[0];
+    }
+
+    /**
+     * @param list<array{bytes: int, event_id: string}> $events
+     *
+     * @return array<string, int>
+     */
+    public function applyBatch(string $organizationId, array $events): array
+    {
+        $outcome = [];
+        foreach ($this->applyAll($organizationId, $events) as $result) {
+            $outcome[$result->value] = ($outcome[$result->value] ?? 0) + 1;
+        }
+
+        return $outcome;
+    }
+
+    /**
+     * @param list<array{bytes: int, event_id: string}> $events
+     *
+     * @return list<UsageApplicationResult>
+     */
+    private function applyAll(string $organizationId, array $events): array
+    {
         return $this->entityManager->wrapInTransaction(
-            function () use ($organizationId, $eventId, $bytes): UsageApplicationResult {
+            function () use ($organizationId, $events): array {
                 $organization = $this->entityManager->find(
                     Organization::class,
                     $organizationId,
@@ -38,19 +63,10 @@ final readonly class UsageApplier
                     throw new UnknownOrganizationException($organizationId);
                 }
 
-                $status = $organization->isOverQuota()
-                    ? UsageEventStatus::RejectedOverQuota
-                    : UsageEventStatus::Applied;
-
-                if (!$this->recorder->record($organizationId, $eventId, $bytes, $status)) {
-                    return UsageApplicationResult::Duplicate;
+                $results = [];
+                foreach ($events as $event) {
+                    $results[] = $this->record($organization, $event['event_id'], $event['bytes']);
                 }
-
-                if (UsageEventStatus::RejectedOverQuota === $status) {
-                    return UsageApplicationResult::RejectedOverQuota;
-                }
-
-                $organization->addConsumption($bytes);
 
                 $change = $this->quotaGuard->synchronize($organization);
                 if (null !== $change) {
@@ -59,8 +75,27 @@ final readonly class UsageApplier
 
                 $this->thresholdNotifier->notifyCrossedThresholds($organization);
 
-                return UsageApplicationResult::Applied;
+                return $results;
             },
         );
+    }
+
+    private function record(Organization $organization, string $eventId, int $bytes): UsageApplicationResult
+    {
+        $status = $organization->isOverQuota()
+            ? UsageEventStatus::RejectedOverQuota
+            : UsageEventStatus::Applied;
+
+        if (!$this->recorder->record($organization->getId()->toRfc4122(), $eventId, $bytes, $status)) {
+            return UsageApplicationResult::Duplicate;
+        }
+
+        if (UsageEventStatus::RejectedOverQuota === $status) {
+            return UsageApplicationResult::RejectedOverQuota;
+        }
+
+        $organization->addConsumption($bytes);
+
+        return UsageApplicationResult::Applied;
     }
 }
