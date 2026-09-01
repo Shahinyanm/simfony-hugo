@@ -17,6 +17,8 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class OrganizationController
 {
+    private const int EVENT_ID_MAX_LENGTH = 128;
+
     public function __construct(
         private readonly OrganizationApiKeyAuthenticator $authenticator,
         private readonly MessageBusInterface $messageBus,
@@ -96,11 +98,15 @@ final class OrganizationController
     /**
      * @param array<string, mixed> $payload
      */
-    private function requireNonEmptyString(array $payload, string $field): string
+    private function requireNonEmptyString(array $payload, string $field, int $maxLength = self::EVENT_ID_MAX_LENGTH): string
     {
         $value = $payload[$field] ?? null;
         if (!\is_string($value) || '' === \trim($value)) {
             throw new BadRequestHttpException(\sprintf('"%s" is required.', $field));
+        }
+
+        if (\strlen($value) > $maxLength) {
+            throw new BadRequestHttpException(\sprintf('"%s" must not exceed %d characters.', $field, $maxLength));
         }
 
         return $value;

@@ -4,27 +4,28 @@ declare(strict_types=1);
 
 namespace App\MessageHandler;
 
-use App\Entity\Organization;
+use App\Application\Usage\UsageApplier;
 use App\Message\IngestUsageMessage;
-use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
 final readonly class IngestUsageMessageHandler
 {
     public function __construct(
-        private EntityManagerInterface $entityManager,
+        private UsageApplier $applier,
+        private LoggerInterface $logger,
     ) {
     }
 
     public function __invoke(IngestUsageMessage $message): void
     {
-        $organization = $this->entityManager->find(Organization::class, $message->organizationId);
-        if (null === $organization) {
-            throw new \RuntimeException(\sprintf('Organization "%s" not found.', $message->organizationId));
-        }
+        $result = $this->applier->apply($message->organizationId, $message->eventId, $message->bytes);
 
-        $organization->addConsumption($message->bytes);
-        $this->entityManager->flush();
+        $this->logger->info('usage event processed', [
+            'organization_id' => $message->organizationId,
+            'event_id' => $message->eventId,
+            'result' => $result->value,
+        ]);
     }
 }
