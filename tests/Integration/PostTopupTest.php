@@ -28,6 +28,23 @@ final class PostTopupTest extends ApiTestCase
     }
 
     #[Test]
+    public function topupOnHealthyOrganizationDoesNotTouchCredentials(): void
+    {
+        $organization = $this->createOrganization(quotaBytes: 10_000_000);
+        $credentialId = $this->createCredential($organization)->getId()->toRfc4122();
+
+        $this->jsonRequest('POST', '/api/organizations/'.$organization->getId()->toRfc4122().'/topups', $organization->getApiKey(), [
+            'bytes' => 5_000_000,
+        ]);
+
+        $outbox = static::getContainer()->get('messenger.transport.outbox');
+        self::assertCount(0, $outbox->getSent());
+
+        $this->jsonRequest('GET', '/api/credentials/'.$credentialId, $organization->getApiKey());
+        self::assertTrue($this->jsonResponse()['enabled']);
+    }
+
+    #[Test]
     public function topupWithAnotherOrganizationApiKeyIsForbidden(): void
     {
         $organization = $this->createOrganization();

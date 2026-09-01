@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Application\Topup\TopupApplier;
 use App\Entity\Organization;
 use App\Message\IngestUsageMessage;
 use App\Security\OrganizationApiKeyAuthenticator;
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,7 +22,7 @@ final class OrganizationController
     public function __construct(
         private readonly OrganizationApiKeyAuthenticator $authenticator,
         private readonly MessageBusInterface $messageBus,
-        private readonly EntityManagerInterface $entityManager,
+        private readonly TopupApplier $topupApplier,
     ) {
     }
 
@@ -51,14 +51,11 @@ final class OrganizationController
     #[Route(path: '/api/organizations/{id}/topups', name: 'organization_post_topup', methods: ['POST'])]
     public function topup(Request $request, string $id): JsonResponse
     {
-        $organization = $this->authenticator->requireOrganization($request, $id);
+        $this->authenticator->requireOrganization($request, $id);
         $payload = $this->decodePayload($request);
         $bytes = $this->requirePositiveInt($payload, 'bytes');
 
-        $organization->addQuota($bytes);
-        $this->entityManager->flush();
-
-        return new JsonResponse($this->organizationPayload($organization));
+        return new JsonResponse($this->organizationPayload($this->topupApplier->apply($id, $bytes)));
     }
 
     /**
