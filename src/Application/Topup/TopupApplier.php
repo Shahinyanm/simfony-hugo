@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Topup;
 
+use App\Application\Quota\ThresholdNotifier;
 use App\Application\UnknownOrganizationException;
 use App\Domain\Quota\QuotaGuard;
 use App\Entity\Organization;
@@ -17,6 +18,7 @@ final readonly class TopupApplier
     public function __construct(
         private EntityManagerInterface $entityManager,
         private QuotaGuard $quotaGuard,
+        private ThresholdNotifier $thresholdNotifier,
         private MessageBusInterface $messageBus,
     ) {
     }
@@ -41,6 +43,8 @@ final readonly class TopupApplier
                 if (null !== $change) {
                     $this->messageBus->dispatch(CredentialsStateChanged::fromChange($change));
                 }
+
+                $this->thresholdNotifier->rearmThresholdsAbove($organization);
 
                 return $organization;
             },

@@ -77,4 +77,24 @@ abstract class ApiTestCase extends WebTestCase
 
         return $data;
     }
+
+    /**
+     * @template T of object
+     *
+     * @param class-string<T> $messageClass
+     *
+     * @return list<T>
+     */
+    protected function sentToOutbox(string $messageClass): array
+    {
+        $messages = [];
+        foreach (static::getContainer()->get('messenger.transport.outbox')->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof $messageClass) {
+                $messages[] = $message;
+            }
+        }
+
+        return $messages;
+    }
 }

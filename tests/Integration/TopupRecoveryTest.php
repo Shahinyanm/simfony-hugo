@@ -8,15 +8,9 @@ use App\Entity\Organization;
 use App\Message\CredentialsStateChanged;
 use App\Tests\Support\ApiTestCase;
 use PHPUnit\Framework\Attributes\Test;
-use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 final class TopupRecoveryTest extends ApiTestCase
 {
-    private function outbox(): InMemoryTransport
-    {
-        return static::getContainer()->get('messenger.transport.outbox');
-    }
-
     /**
      * @return array{Organization, string}
      */
@@ -46,11 +40,10 @@ final class TopupRecoveryTest extends ApiTestCase
         ]);
         self::assertResponseIsSuccessful();
 
-        $sent = $this->outbox()->getSent();
+        $sent = $this->sentToOutbox(CredentialsStateChanged::class);
         self::assertCount(1, $sent);
 
-        $event = $sent[0]->getMessage();
-        self::assertInstanceOf(CredentialsStateChanged::class, $event);
+        $event = $sent[0];
         self::assertTrue($event->enabled);
         self::assertSame('quota_restored', $event->reason);
 
@@ -67,7 +60,7 @@ final class TopupRecoveryTest extends ApiTestCase
             'bytes' => 100_000,
         ]);
         self::assertResponseIsSuccessful();
-        self::assertCount(0, $this->outbox()->getSent());
+        self::assertCount(0, $this->sentToOutbox(CredentialsStateChanged::class));
 
         $this->jsonRequest('GET', '/api/credentials/'.$credentialId, $organization->getApiKey());
         self::assertFalse($this->jsonResponse()['enabled']);

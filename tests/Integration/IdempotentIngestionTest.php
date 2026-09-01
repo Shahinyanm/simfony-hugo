@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration;
 
+use App\Message\CredentialsStateChanged;
 use App\Tests\Support\ApiTestCase;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Response;
@@ -60,13 +61,12 @@ final class IdempotentIngestionTest extends ApiTestCase
         $organization = $this->createOrganization(quotaBytes: 1_000_000);
         $this->createCredential($organization);
         $uri = '/api/organizations/'.$organization->getId()->toRfc4122().'/usage';
-        $outbox = static::getContainer()->get('messenger.transport.outbox');
 
         $this->jsonRequest('POST', $uri, $organization->getApiKey(), ['bytes' => 1_000_000, 'event_id' => 'evt-burn']);
-        self::assertCount(1, $outbox->getSent());
+        self::assertCount(1, $this->sentToOutbox(CredentialsStateChanged::class));
 
         $this->jsonRequest('POST', $uri, $organization->getApiKey(), ['bytes' => 1_000_000, 'event_id' => 'evt-burn']);
-        self::assertCount(0, $outbox->getSent());
+        self::assertCount(0, $this->sentToOutbox(CredentialsStateChanged::class));
     }
 
     #[Test]

@@ -8,15 +8,9 @@ use App\Entity\Organization;
 use App\Message\CredentialsStateChanged;
 use App\Tests\Support\ApiTestCase;
 use PHPUnit\Framework\Attributes\Test;
-use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 final class QuotaCutOffTest extends ApiTestCase
 {
-    private function outbox(): InMemoryTransport
-    {
-        return static::getContainer()->get('messenger.transport.outbox');
-    }
-
     #[Test]
     public function exhaustingQuotaDisablesAllCredentials(): void
     {
@@ -50,11 +44,10 @@ final class QuotaCutOffTest extends ApiTestCase
             'event_id' => 'evt-burn',
         ]);
 
-        $messages = $this->outbox()->getSent();
+        $messages = $this->sentToOutbox(CredentialsStateChanged::class);
         self::assertCount(1, $messages);
 
-        $event = $messages[0]->getMessage();
-        self::assertInstanceOf(CredentialsStateChanged::class, $event);
+        $event = $messages[0];
         self::assertFalse($event->enabled);
         self::assertSame('quota_exhausted', $event->reason);
         self::assertCount(2, $event->credentialIds);
@@ -74,7 +67,7 @@ final class QuotaCutOffTest extends ApiTestCase
 
         $this->entityManager->refresh($credential);
         self::assertTrue($credential->isEnabled());
-        self::assertCount(0, $this->outbox()->getSent());
+        self::assertCount(0, $this->sentToOutbox(CredentialsStateChanged::class));
     }
 
     #[Test]
@@ -85,10 +78,10 @@ final class QuotaCutOffTest extends ApiTestCase
         $uri = '/api/organizations/'.$organization->getId()->toRfc4122().'/usage';
 
         $this->jsonRequest('POST', $uri, $organization->getApiKey(), ['bytes' => 1_000_000, 'event_id' => 'evt-burn']);
-        self::assertCount(1, $this->outbox()->getSent());
+        self::assertCount(1, $this->sentToOutbox(CredentialsStateChanged::class));
 
         $this->jsonRequest('POST', $uri, $organization->getApiKey(), ['bytes' => 500_000, 'event_id' => 'evt-after']);
-        self::assertCount(0, $this->outbox()->getSent());
+        self::assertCount(0, $this->sentToOutbox(CredentialsStateChanged::class));
 
         $this->jsonRequest('GET', '/api/organizations/'.$organization->getId()->toRfc4122(), $organization->getApiKey());
         self::assertSame(1_000_000, $this->jsonResponse()['consumption_bytes']);

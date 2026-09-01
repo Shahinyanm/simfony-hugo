@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Usage;
 
+use App\Application\Quota\ThresholdNotifier;
 use App\Application\UnknownOrganizationException;
 use App\Domain\Quota\QuotaGuard;
 use App\Entity\Organization;
@@ -18,6 +19,7 @@ final readonly class UsageApplier
         private EntityManagerInterface $entityManager,
         private UsageEventRecorder $recorder,
         private QuotaGuard $quotaGuard,
+        private ThresholdNotifier $thresholdNotifier,
         private MessageBusInterface $messageBus,
     ) {
     }
@@ -54,6 +56,8 @@ final readonly class UsageApplier
                 if (null !== $change) {
                     $this->messageBus->dispatch(CredentialsStateChanged::fromChange($change));
                 }
+
+                $this->thresholdNotifier->notifyCrossedThresholds($organization);
 
                 return UsageApplicationResult::Applied;
             },

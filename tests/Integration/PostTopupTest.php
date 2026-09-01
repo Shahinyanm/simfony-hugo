@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration;
 
+use App\Message\CredentialsStateChanged;
 use App\Tests\Support\ApiTestCase;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Response;
@@ -37,8 +38,7 @@ final class PostTopupTest extends ApiTestCase
             'bytes' => 5_000_000,
         ]);
 
-        $outbox = static::getContainer()->get('messenger.transport.outbox');
-        self::assertCount(0, $outbox->getSent());
+        self::assertCount(0, $this->sentToOutbox(CredentialsStateChanged::class));
 
         $this->jsonRequest('GET', '/api/credentials/'.$credentialId, $organization->getApiKey());
         self::assertTrue($this->jsonResponse()['enabled']);

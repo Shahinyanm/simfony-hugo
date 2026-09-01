@@ -31,7 +31,9 @@ framework:
         routing:
             App\Message\IngestUsageMessage: async
             App\Message\CredentialsStateChanged: outbox
+            App\Message\QuotaThresholdReached: outbox
             App\Message\ProxyFleetNotification: broker
+            App\Message\QuotaThresholdNotification: broker
 
 when@test:
     framework:
